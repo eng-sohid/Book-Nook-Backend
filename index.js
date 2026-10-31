@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { MongoClient, ObjectId } from "mongodb";
+import authMiddleware from "./middleware/authMiddleware.js";
 
 dotenv.config();
 
@@ -81,7 +82,7 @@ app.get("/books/:id", async (req, res) => {
 });
 
 // UPDATE BOOK
-app.patch("/books/:id", async (req, res) => {
+app.patch("/books/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const userEmail = req.query.userEmail;
@@ -167,7 +168,7 @@ app.patch("/books/:id", async (req, res) => {
 });
 
 // DELETE BOOK
-app.delete("/books/:id", async (req, res) => {
+app.delete("/books/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const userEmail = req.query.userEmail;
@@ -208,7 +209,7 @@ app.delete("/books/:id", async (req, res) => {
 });
 
 // BORROW Book
-app.post("/borrows", async (req, res) => {
+app.post("/borrows", authMiddleware, async (req, res) => {
   const { bookId, userEmail, userName, borrowDate, returnDate } = req.body;
 
   if (!ObjectId.isValid(bookId)) {
@@ -332,7 +333,7 @@ app.post("/borrows", async (req, res) => {
   }
 });
 // GET My Borrows
-app.get("/borrows", async (req, res) => {
+app.get("/borrows", authMiddleware, async (req, res) => {
   try {
     const { userEmail } = req.query;
 
