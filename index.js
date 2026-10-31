@@ -85,17 +85,11 @@ app.get("/books/:id", async (req, res) => {
 app.patch("/books/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const userEmail = req.query.userEmail;
+    const userEmail = req.user.email;
 
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({
         message: "Invalid Book ID",
-      });
-    }
-
-    if (!userEmail) {
-      return res.status(400).json({
-        message: "User email is required",
       });
     }
 
@@ -136,6 +130,7 @@ app.patch("/books/:id", authMiddleware, async (req, res) => {
         });
       }
 
+      updatedData.totalCopies = newTotal;
       updatedData.availableCopies = newTotal - borrowedCopies;
     }
 
@@ -171,17 +166,11 @@ app.patch("/books/:id", authMiddleware, async (req, res) => {
 app.delete("/books/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const userEmail = req.query.userEmail;
+    const userEmail = req.user.email;
 
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({
         message: "Invalid Book ID",
-      });
-    }
-
-    if (!userEmail) {
-      return res.status(400).json({
-        message: "User email is required",
       });
     }
 
