@@ -358,7 +358,7 @@ app.get("/borrows", authMiddleware, async (req, res) => {
   }
 });
 // RETURN Book
-app.delete("/borrows/:id", async (req, res) => {
+app.delete("/borrows/:id", authMiddleware, async (req, res) => {
   const id = req.params.id;
   const session = client.startSession();
 
@@ -416,18 +416,15 @@ app.delete("/borrows/:id", async (req, res) => {
 });
 // POST New Book
 
-app.post("/books", async (req, res) => {
+// POST New Book
+app.post("/books", authMiddleware, async (req, res) => {
   try {
-    const {
-      title,
-      author,
-      category,
-      image,
-      description,
-      totalCopies,
-      addedByName,
-      addedByEmail,
-    } = req.body;
+    const { title, author, category, image, description, totalCopies } =
+      req.body;
+
+    // Get user information from verified JWT
+    const addedByName = req.user.name;
+    const addedByEmail = req.user.email;
 
     if (
       !title ||
@@ -472,7 +469,6 @@ app.post("/books", async (req, res) => {
     });
   }
 });
-
 // Start Server
 async function startServer() {
   await connectDB();
