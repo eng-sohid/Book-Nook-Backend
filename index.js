@@ -198,16 +198,23 @@ app.delete("/books/:id", authMiddleware, async (req, res) => {
 });
 
 // BORROW Book
-app.post("/borrows", authMiddleware, async (req, res) => {
-  const { bookId, userEmail, userName, borrowDate, returnDate } = req.body;
 
+app.post("/borrows", authMiddleware, async (req, res) => {
+  const { bookId, borrowDate, returnDate } = req.body;
+
+  // Get authenticated user information from JWT
+  const userEmail = req.user.email;
+  const userName = req.user.name || req.user.email;
+
+  // Validate Book ID
   if (!ObjectId.isValid(bookId)) {
     return res.status(400).json({
       message: "Invalid Book ID",
     });
   }
 
-  if (!userEmail || !userName || !borrowDate || !returnDate) {
+  // Validate borrow information
+  if (!borrowDate || !returnDate) {
     return res.status(400).json({
       message: "All borrow information is required",
     });
@@ -219,6 +226,7 @@ app.post("/borrows", authMiddleware, async (req, res) => {
     let borrowResult;
 
     await session.withTransaction(async () => {
+      // Find book
       const book = await booksCollection.findOne(
         { _id: new ObjectId(bookId) },
         { session },
@@ -228,6 +236,7 @@ app.post("/borrows", authMiddleware, async (req, res) => {
         throw new Error("BOOK_NOT_FOUND");
       }
 
+      // Check existing borrow
       const existingBorrow = await borrowsCollection.findOne(
         {
           bookId,
@@ -241,10 +250,12 @@ app.post("/borrows", authMiddleware, async (req, res) => {
         throw new Error("ALREADY_BORROWED");
       }
 
+      // Check available copies
       if (book.availableCopies <= 0) {
         throw new Error("NO_COPIES");
       }
 
+      // Decrease available copies
       const updateResult = await booksCollection.updateOne(
         {
           _id: new ObjectId(bookId),
@@ -260,6 +271,7 @@ app.post("/borrows", authMiddleware, async (req, res) => {
         throw new Error("NO_COPIES");
       }
 
+      // Create borrow data
       const borrowData = {
         bookId,
         bookTitle: book.title,
@@ -277,17 +289,18 @@ app.post("/borrows", authMiddleware, async (req, res) => {
       });
     });
 
-    // Check updated book copies after transaction
+    // Get updated book information
     const updatedBook = await booksCollection.findOne({
       _id: new ObjectId(bookId),
     });
 
     console.log("--------------------------------");
     console.log("Book ID:", bookId);
-    console.log("Available Copies Before Borrow:", updatedBook.totalCopies);
+    console.log("Available Copies Before Borrow:", bookId);
     console.log("Available Copies After Borrow:", updatedBook.availableCopies);
     console.log("--------------------------------");
 
+    // Success response
     res.status(201).json({
       message: "Book borrowed successfully",
       insertedId: borrowResult.insertedId,
@@ -321,35 +334,33 @@ app.post("/borrows", authMiddleware, async (req, res) => {
     await session.endSession();
   }
 });
+
 // GET My Borrows
+
 app.get("/borrows", authMiddleware, async (req, res) => {
   try {
-    const { userEmail } = req.query;
-
-    if (!userEmail) {
-      return res.status(400).json({
-        message: "User email is required",
-      });
-    }
+    // Get authenticated user's email from JWT
+    const userEmail = req.user.email;
 
     const borrows = await borrowsCollection
-      .find({ userEmail: userEmail.toString() })
+      .find({ userEmail })
       .sort({ createdAt: -1 })
       .toArray();
 
     res.status(200).json(borrows);
   } catch (error) {
-    console.error(error);
+    console.error("Fetch Borrows Error:", error);
 
     res.status(500).json({
       message: "Failed to fetch borrowed books",
     });
   }
 });
+
 // RETURN Book
 app.delete("/borrows/:id", authMiddleware, async (req, res) => {
   const id = req.params.id;
-  const session = client.startSession();
+  const userEmail = req.user.email;
 
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({
@@ -357,10 +368,17 @@ app.delete("/borrows/:id", authMiddleware, async (req, res) => {
     });
   }
 
+  const session = client.startSession();
+
   try {
     await session.withTransaction(async () => {
+      // Find borrow record belonging to authenticated user
       const borrow = await borrowsCollection.findOne(
-        { _id: new ObjectId(id), status: "borrowed" },
+        {
+          _id: new ObjectId(id),
+          userEmail,
+          status: "borrowed",
+        },
         { session },
       );
 
@@ -368,8 +386,13 @@ app.delete("/borrows/:id", authMiddleware, async (req, res) => {
         throw new Error("BORROW_NOT_FOUND");
       }
 
+      // Delete borrow record
       const deleteResult = await borrowsCollection.deleteOne(
-        { _id: new ObjectId(id), status: "borrowed" },
+        {
+          _id: new ObjectId(id),
+          userEmail,
+          status: "borrowed",
+        },
         { session },
       );
 
@@ -377,6 +400,7 @@ app.delete("/borrows/:id", authMiddleware, async (req, res) => {
         throw new Error("BORROW_NOT_FOUND");
       }
 
+      // Increase available book copies
       await booksCollection.updateOne(
         { _id: new ObjectId(borrow.bookId) },
         { $inc: { availableCopies: 1 } },
@@ -394,7 +418,7 @@ app.delete("/borrows/:id", authMiddleware, async (req, res) => {
       });
     }
 
-    console.error(error);
+    console.error("Return Book Error:", error);
 
     res.status(500).json({
       message: "Failed to return book",
@@ -403,6 +427,7 @@ app.delete("/borrows/:id", authMiddleware, async (req, res) => {
     await session.endSession();
   }
 });
+
 // POST New Book
 
 // POST New Book
