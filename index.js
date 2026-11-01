@@ -429,8 +429,6 @@ app.delete("/borrows/:id", authMiddleware, async (req, res) => {
 });
 
 // POST New Book
-
-// POST New Book
 app.post("/books", authMiddleware, async (req, res) => {
   try {
     const { title, author, category, image, description, totalCopies } =
@@ -483,6 +481,48 @@ app.post("/books", authMiddleware, async (req, res) => {
     });
   }
 });
+
+// USER PROFILE STATISTICS
+app.get("/users/profile-stats", authMiddleware, async (req, res) => {
+  try {
+    const userEmail = req.user.email;
+
+    console.log("PROFILE USER EMAIL:", userEmail);
+
+    const totalBooksAdded = await booksCollection.countDocuments({
+      addedByEmail: userEmail,
+    });
+
+    const totalBooksBorrowed = await borrowsCollection.countDocuments({
+      userEmail: userEmail,
+    });
+
+    const currentlyBorrowed = await borrowsCollection.countDocuments({
+      userEmail: userEmail,
+      status: "borrowed",
+    });
+
+    console.log("PROFILE STATS:", {
+      totalBooksAdded,
+      totalBooksBorrowed,
+      currentlyBorrowed,
+    });
+    res.status(200).json({
+      name: req.user.name,
+      email: userEmail,
+      totalBooksAdded,
+      totalBooksBorrowed,
+      currentlyBorrowed,
+    });
+  } catch (error) {
+    console.error("Profile Stats Error:", error);
+
+    res.status(500).json({
+      message: "Failed to fetch profile information",
+    });
+  }
+});
+
 // Start Server
 async function startServer() {
   await connectDB();
