@@ -482,7 +482,7 @@ app.post("/books", authMiddleware, async (req, res) => {
   }
 });
 
-// USER PROFILE STATISTICS
+// User profile
 app.get("/users/profile-stats", authMiddleware, async (req, res) => {
   try {
     const userEmail = req.user.email;
